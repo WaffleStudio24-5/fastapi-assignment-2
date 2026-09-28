@@ -12,14 +12,7 @@ from src.users.schemas import CreateUserRequest, UserResponse
 from src.common.database import blocked_token_db, session_db, user_db
 
 from src.users.errors import EmailAlreadyExistsException
-
-from argon2 import PasswordHasher
-
-ph = PasswordHasher(
-    memory_cost=65536,
-    time_cost=3,
-    parallelism=4
-)
+from src.auth.utils import ph, get_current_user
 
 user_router = APIRouter(prefix="/users", tags=["users"])
 
@@ -47,5 +40,5 @@ def create_user(request: CreateUserRequest) -> UserResponse:
     )
 
 @user_router.get("/me")
-def get_user_info():
-    pass
+def get_user_info(user: Annotated[dict, Depends(get_current_user)]) -> UserResponse:
+    return UserResponse(**user)
