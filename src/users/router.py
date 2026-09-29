@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import (
@@ -54,14 +55,16 @@ def get_current_user(
     sid: str | None = Cookie(default=None),
     authorization: str | None = Header(default=None)
     ):
+    # 세션 검증
     if sid is not None:
         session = session_db.get(sid)
-        if session is None:
+        if session is None or session["expires_at"] <= datetime.now(timezone.utc):
             raise InvalidSessionException()
         
         user_id = session["user_id"]
         return next(user for user in user_db if user["user_id"]==user_id)
     
+    # 토큰 검증
     if authorization is not None:
         auth = authorization.split()
         if len(auth) != 2 or auth[0] != "Bearer":
