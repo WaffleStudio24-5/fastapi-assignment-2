@@ -1,0 +1,69 @@
+name: Grade pull requests
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_numbers:
+        description: "PR numbers as a JSON array (for example: [12, 13, 14])"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  grade:
+    name: Grade PR #${{ matrix.pr }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        pr: ${{ fromJSON(inputs.pr_numbers) }}
+
+    steps:
+      - name: Check out trusted public tests
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: base
+          persist-credentials: false
+
+      - name: Check out grading tests
+        uses: actions/checkout@v6
+        with:
+          ref: grading
+          path: grading
+          persist-credentials: false
+
+      - name: Check out PR merge commit
+        uses: actions/checkout@v6
+        with:
+          ref: refs/pull/${{ matrix.pr }}/merge
+          path: submission
+          persist-credentials: false
+
+      - name: Use trusted tests
+        shell: bash
+        run: |
+          rm -rf submission/tests submission/grader_tests
+          cp -R base/tests submission/tests
+          cp -R grading/grader_tests submission/grader_tests
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: false
+
+      - name: Install dependencies
+        working-directory: submission
+        run: uv sync --locked --group dev
+
+      - name: Run public and grading tests
+        working-directory: submission
+        run: >-
+          uv run pytest -o addopts=""
+          tests
+          grader_tests
